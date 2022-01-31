@@ -54,7 +54,7 @@ passport.serializeUser((user, done) => {
 // read the session from the cookie
 passport.deserializeUser((id, done) => {
 	// we can connect to a db here to store user cookie data
-    done(null, id);
+	done(null, id);
 });
 // init express
 const app = express();
@@ -72,8 +72,10 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+// validate if user has logged
 const validateUserCredentials = (req, res, next) => {
-	const isLoggedIn = true;
+	console.log(`Current user is: ${req.user}`);
+	const isLoggedIn = req.isAuthenticated() && req.user;
 	if (!isLoggedIn) {
 		return res.status(401).json({
 			error: 'You must log in to access this content! ',
@@ -90,7 +92,11 @@ app.get(
 		console.log('Google called us back!');
 	}
 );
-app.get('/auth/logout', (req, res) => {});
+//
+app.get('/auth/logout', (req, res) => {
+	req.logOut(); // removes req.user and clears logged session
+	return res.redirect('/');
+});
 app.get('/auth/failure', (req, res) => {
 	return res.send('Failed to log in....');
 });
