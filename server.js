@@ -5,7 +5,9 @@ import fs from 'fs';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import passport from 'passport';
+import cookieSession from 'cookie-session';
 import { Strategy } from 'passport-google-oauth20';
+import { verify } from 'crypto';
 
 // authentication
 
@@ -21,11 +23,21 @@ dotenv.config();
 const config = {
 	CLIENT_ID: process.env.CLIENT_ID,
 	CLIENT_SECRET: process.env.CLIENT_SECRET,
+	COOKIE_KEY_ONE: process.env.COOKIE_KEY_ONE,
+	COOKIE_KEY_TWO: process.env.COOKIE_KEY_TWO,
 };
 const AUTH_OPTIONS = {
 	callbackURL: '/auth/google/callback',
 	clientID: config.CLIENT_ID,
 	clientSecret: config.CLIENT_SECRET,
+};
+const AUTH_REDIRECT_OPTIONS = {
+	failureRedirect: '/auth/failure',
+	successRedirect: '/',
+	session: true,
+};
+const AUTH_SCOPE_OPTIONS = {
+	scope: ['email', 'profile'],
 };
 
 const verifyCallback = (accessToken, refreshToken, profile, done) => {
@@ -35,12 +47,30 @@ const verifyCallback = (accessToken, refreshToken, profile, done) => {
 
 // passport strategy
 passport.use(new Strategy(AUTH_OPTIONS, verifyCallback));
-
+// save session to the cookie
+passport.serializeUser((user, done) => {
+	done(null, user.id);
+});
+// read the session from the cookie
+passport.deserializeUser((id, done) => {
+	// we can connect to a db here to store user cookie data
+    done(null, id);
+});
+// init express
 const app = express();
 // added security features to stop sniffing and hacking
 app.use(helmet());
+// cookie session
+app.use(
+	cookieSession({
+		name: 'session',
+		maxAge: 24 * 60 * 60 * 1000,
+		keys: [config.COOKIE_KEY_ONE, config.COOKIE_KEY_TWO],
+	})
+);
 //authentication middleware passport
 app.use(passport.initialize());
+app.use(passport.session());
 
 const validateUserCredentials = (req, res, next) => {
 	const isLoggedIn = true;
@@ -51,10 +81,21 @@ const validateUserCredentials = (req, res, next) => {
 	}
 	next();
 };
-//
-app.get('/auth/google/', (req, res) => {});
-app.get('/auth/google/callback', (req, res) => {});
+// google authentication endpoints
+app.get('/auth/google/', passport.authenticate('google', AUTH_SCOPE_OPTIONS));
+app.get(
+	'/auth/google/callback',
+	passport.authenticate('google', AUTH_REDIRECT_OPTIONS),
+	(req, res) => {
+		console.log('Google called us back!');
+	}
+);
 app.get('/auth/logout', (req, res) => {});
+app.get('/auth/failure', (req, res) => {
+	return res.send('Failed to log in....');
+});
+
+// client endpoints
 app.get('/', (req, res) => {
 	res.sendFile(path.resolve('public', 'index.html'));
 });

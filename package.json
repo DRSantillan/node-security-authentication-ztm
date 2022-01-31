@@ -6,6 +6,7 @@
   "author": "Dean <dean@deansantillan.com>",
   "license": "MIT",
   "dependencies": {
+    "cookie-session": "^2.0.0",
     "dotenv": "^14.3.2",
     "express": "^4.17.2",
     "helmet": "^5.0.2",
